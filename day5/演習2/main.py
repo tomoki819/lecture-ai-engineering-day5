@@ -29,7 +29,6 @@ class DataLoader:
             else:
                 raise FileNotFoundError(f"Titanic.csv not found at {local_path}")
 
-
     @staticmethod
     def preprocess_titanic_data(data):
         """Titanicデータを前処理する"""

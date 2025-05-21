@@ -11,6 +11,7 @@ import pickle
 import time
 import great_expectations as gx
 
+
 class DataLoader:
     """データロードを行うクラス"""
 
@@ -20,10 +21,13 @@ class DataLoader:
         if path:
             return pd.read_csv(path)
         else:
-            # ローカルのファイル
-            local_path = "data/Titanic.csv"
+            # 絶対パスに変換
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            local_path = os.path.join(base_dir, "data", "Titanic.csv")
             if os.path.exists(local_path):
                 return pd.read_csv(local_path)
+            else:
+                raise FileNotFoundError(f"Titanic.csv not found at {local_path}")
 
     @staticmethod
     def preprocess_titanic_data(data):
@@ -231,21 +235,32 @@ def test_model_performance():
         X, y, test_size=0.2, random_state=42
     )
 
-    # モデル学習
+    # モデル学習と評価
     model = ModelTester.train_model(X_train, y_train)
-
-    # 評価
     metrics = ModelTester.evaluate_model(model, X_test, y_test)
 
-    # ベースラインとの比較
-    assert ModelTester.compare_with_baseline(
-        metrics, 0.75
-    ), f"モデル性能がベースラインを下回っています: {metrics['accuracy']}"
+    # ベースライン比較
+    baseline_threshold = 0.75
+    if ModelTester.compare_with_baseline(metrics, baseline_threshold):
+        print(
+            f"✅ ベースライン比較合格: {metrics['accuracy']:.4f}（基準: {baseline_threshold}）"
+        )
+    else:
+        print(
+            f"❌ ベースライン比較失敗: {metrics['accuracy']:.4f} < 基準 {baseline_threshold}"
+        )
+        assert (
+            False
+        ), f"ベースライン比較に失敗: {metrics['accuracy']} < {baseline_threshold}"
 
-    # 推論時間の確認
-    assert (
-        metrics["inference_time"] < 1.0
-    ), f"推論時間が長すぎます: {metrics['inference_time']}秒"
+    # 推論時間チェック
+    if metrics["inference_time"] < 1.0:
+        print(
+            f"✅ 推論時間チェック合格: {metrics['inference_time']:.4f}秒（基準: 1.0秒）"
+        )
+    else:
+        print(f"❌ 推論時間が長すぎます: {metrics['inference_time']}秒")
+        assert False, f"推論時間が長すぎます: {metrics['inference_time']}秒"
 
 
 if __name__ == "__main__":
@@ -285,3 +300,38 @@ if __name__ == "__main__":
     # ベースラインとの比較
     baseline_ok = ModelTester.compare_with_baseline(metrics)
     print(f"ベースライン比較: {'合格' if baseline_ok else '不合格'}")
+
+
+def test_inference_speed_and_accuracy():
+    """推論時間と精度の制約チェック（高パフォーマンス要件）"""
+    data = DataLoader.load_titanic_data()
+    X, y = DataLoader.preprocess_titanic_data(data)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+    model = ModelTester.train_model(X_train, y_train)
+    metrics = ModelTester.evaluate_model(model, X_test, y_test)
+
+    # 推論時間チェック
+    inference_time_threshold = 0.5
+    if metrics["inference_time"] < inference_time_threshold:
+        print(
+            f"✅ 推論時間チェック合格: {metrics['inference_time']:.4f}秒（基準: {inference_time_threshold}秒）"
+        )
+    else:
+        print(
+            f"❌ 推論時間チェック失敗: {metrics['inference_time']:.4f}秒 > 基準: {inference_time_threshold}秒"
+        )
+        assert False, f"推論時間オーバー: {metrics['inference_time']:.4f}秒"
+
+    # 精度チェック
+    accuracy_threshold = 0.80
+    if metrics["accuracy"] >= accuracy_threshold:
+        print(
+            f"✅ 精度チェック合格: {metrics['accuracy']:.4f}（基準: {accuracy_threshold}）"
+        )
+    else:
+        print(
+            f"❌ 精度チェック失敗: {metrics['accuracy']:.4f} < 基準: {accuracy_threshold}"
+        )
+        assert False, f"精度未達: {metrics['accuracy']:.4f}"

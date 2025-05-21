@@ -21,10 +21,14 @@ class DataLoader:
         if path:
             return pd.read_csv(path)
         else:
-            # ローカルのファイル
-            local_path = "data/Titanic.csv"
+            # 絶対パスに変換
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            local_path = os.path.join(base_dir, "data", "Titanic.csv")
             if os.path.exists(local_path):
                 return pd.read_csv(local_path)
+            else:
+                raise FileNotFoundError(f"Titanic.csv not found at {local_path}")
+
 
     @staticmethod
     def preprocess_titanic_data(data):
